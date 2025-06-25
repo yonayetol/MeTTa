@@ -1,0 +1,80 @@
+;;; variable extractor from a given pattern
+
+( = (variable-extractor $head () $answer) 
+    (
+        if (== (get-metatype $head) Variable)
+            ( union-atom $answer ($head))
+            (if (== (get-metatype $head) Expression)
+                (variable-extractor (car-atom $head) (cdr-atom $head) $answer )    
+                $answer
+            )    
+    )
+)
+
+( = (variable-extractor $head $tail $answer) 
+    ( 
+        if (== (get-metatype $head) Variable)
+            (variable-extractor (car-atom $tail) (cdr-atom $tail) ( union-atom $answer ($head)))
+            (
+                if (== (get-metatype $head) Expression)
+                    (
+                        (variable-extractor (car-atom $head) (cdr-atom $head) $answer )
+                        (variable-extractor (car-atom $tail) (cdr-atom $tail) $answer )
+                    )
+                    (variable-extractor (car-atom $tail) (cdr-atom $tail) $answer )          
+            )
+            
+    )
+)
+
+( = (get-variables $var) (variable-extractor (car-atom $var) (cdr-atom $var) ( ) ) )
+
+;!( get-variables (Inheritance $x $y text $other $r hi there $hi))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; variable substituter given values for the variables
+
+( = ( substitute $thePattern $setOfVariables $accumulator)
+    (
+        if (== $thePattern ())
+            $accumulator ;; just return what u have, since u have reached the end
+            ( let* 
+                (
+                    ($head (car-atom $thePattern)) 
+                    ($tail (cdr-atom $thePattern)) 
+                    ($headType (get-metatype $head))
+                    ($firstVariable (car-atom $setOfVariables))
+                    ($restVariables (cdr-atom $setOfVariables))
+                ) 
+
+                ( 
+                    if (== $headType Variable) 
+                        ( substitute $tail $restVariables ( union-atom $accumulator ($firstVariable) ) )
+
+                        (   
+                            if (== $headType Expression) 
+                                ( 
+                                    ; ( substitute (car-atom $head) $setOfVariables $accumulator )
+                                    ; ( substitute (cdr-atom $head) $setOfVariables $accumulator )
+                                    won't be called for now
+                                )
+                                (
+                                    let 
+                                        $joined (union-atom $accumulator ($head)) 
+                                        ( substitute $tail $setOfVariables $joined )
+
+                                )
+                                
+                        )
+                )
+            )
+    
+    )
+)
+
+;!(substitute (Inheritance here $new my $x $y) (is dog killer) ())
+
+
