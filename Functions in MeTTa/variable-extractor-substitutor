@@ -1,27 +1,43 @@
 ;;; variable extractor from a given pattern
 
 ( = (variable-extractor $head () $answer) 
-    (
-        if (== (get-metatype $head) Variable)
-            ( union-atom $answer ($head))
-            (if (== (get-metatype $head) Expression)
-                (variable-extractor (car-atom $head) (cdr-atom $head) $answer )    
-                $answer
-            )    
+    (  
+        trace! ( $head is called at top variable-extractor) 
+            (if (== (get-metatype $head) Variable)
+                ( union-atom $answer ($head))
+                (if (== (get-metatype $head) Expression)
+                    (variable-extractor (car-atom $head) (cdr-atom $head) $answer )    
+                    $answer
+                ) )   
+        
     )
 )
 
 ( = (variable-extractor $head $tail $answer) 
-    ( 
-        if (== (get-metatype $head) Variable)
-            (variable-extractor (car-atom $tail) (cdr-atom $tail) ( union-atom $answer ($head)))
+    (   trace! (now head is $head with tail = $tail) 
             (
-                if (== (get-metatype $head) Expression)
+                if (== (get-metatype $head) Variable)
+                    (variable-extractor (car-atom $tail) (cdr-atom $tail) ( union-atom $answer ($head) ) )
                     (
-                        (variable-extractor (car-atom $head) (cdr-atom $head) $answer )
-                        (variable-extractor (car-atom $tail) (cdr-atom $tail) $answer )
+                        if (== (get-metatype $head) Expression)
+                            ( 
+                                let* 
+                                    ( 
+                                        ;;;;; get all variables from this expression as well as post expression variables
+                                        ($var1 (variable-extractor (car-atom $head) (cdr-atom $head) () ) )
+                                        ($var2 (variable-extractor (car-atom $tail) (cdr-atom $tail) () ) )
+                                     )
+
+                                    (   ;;;; merge all variables u have got so far
+                                        let 
+                                            $first_unity (union-atom $answer $var1)
+                                            (union-atom $first_unity $var2)
+                                    )
+                                 
+                                
+                            )
+                            ( variable-extractor (car-atom $tail) (cdr-atom $tail) $answer )          
                     )
-                    (variable-extractor (car-atom $tail) (cdr-atom $tail) $answer )          
             )
             
     )
@@ -29,18 +45,17 @@
 
 ( = (get-variables $var) (variable-extractor (car-atom $var) (cdr-atom $var) ( ) ) )
 
-;!( get-variables (Inheritance $x $y text $other $r hi there $hi))
-
+!( get-variables (Inheritance $new ( $x $y ($again ( $3rd_expression ) ) ) (((text )))$other $r hi there $hi))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; variable substituter given values for the variables
 
-( = ( substitute $thePattern $setOfVariables $accumulator)
-    (
+( = ( real-substitute-func $thePattern $setOfVariables $accumulator)
+    (   
         if (== $thePattern ())
-            $accumulator ;; just return what u have, since u have reached the end
+            ($accumulator $setOfVariables) ;;;``;;; end of expression ;;;
             ( let* 
                 (
                     ($head (car-atom $thePattern)) 
@@ -52,19 +67,30 @@
 
                 ( 
                     if (== $headType Variable) 
-                        ( substitute $tail $restVariables ( union-atom $accumulator ($firstVariable) ) )
+                        ( real-substitute-func $tail $restVariables ( union-atom $accumulator ($firstVariable) ) )
 
                         (   
-                            if (== $headType Expression) 
-                                ( 
-                                    ; ( substitute (car-atom $head) $setOfVariables $accumulator )
-                                    ; ( substitute (cdr-atom $head) $setOfVariables $accumulator )
-                                    won't be called for now
-                                )
+                            if (== $headType Expression)  
+                                ;; work for this expression and return the corrected expression here
+                                ( let* (
+                                        ( $returnedValue (real-substitute-func $head $setOfVariables ()) )
+                                        ( $textPart      ((car-atom $returnedValue)))
+                                        ( $variablePart   (cdr-atom $returnedValue) )
+                                        ( $leftVariable  (car-atom $variablePart))
+                                        ( () (println! (returnedValue ~ $returnedValue , textPart ~ $textPart , left over variable ~ $leftVariable)) )
+                                    ) ( 
+                                        ;; call this function by passing empty accumulator and u have to track the substituting variables here 
+                                        let
+                                            $fullHistory (union-atom $accumulator $textPart) 
+                                            ;; work for the rest of the pattern with the leftover substituting variables
+                                            ( real-substitute-func $tail $leftVariable $fullHistory )
+                                    )
+                                    
+                                ) 
                                 (
                                     let 
                                         $joined (union-atom $accumulator ($head)) 
-                                        ( substitute $tail $setOfVariables $joined )
+                                        ( real-substitute-func $tail $setOfVariables $joined )
 
                                 )
                                 
@@ -75,6 +101,18 @@
     )
 )
 
-;!(substitute (Inheritance here $new my $x $y) (is dog killer) ())
+( = (substitute $pattern $setOfVariables) 
+    (
+        let 
+            $answer (real-substitute-func $pattern $setOfVariables ()) 
+
+            (car-atom $answer)
+    )   
+)
+
+!(bind! &prompt (Inheritance (here spoiler (another (spoiler $fact)) ) $new my $x $y) )
+!(bind! &vars ((but yeah it is working!) is dog killer) )
+
+!(substitute &prompt &vars) 
 
 
