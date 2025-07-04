@@ -1,0 +1,223 @@
+!(import! &self variable_identifier)
+
+
+
+;;;;;; depth generator ;;;;;;
+; input 3
+; output (s (s (s ())))
+( = (generateDepth $size) 
+    (
+        if (== $size 0)
+            ()
+            (S (generateDepth (- $size 1)))
+    )
+)
+; test 
+; !(generateDepth 3)
+
+
+
+
+
+;;;;;;; duplicate remover  ;;;;;;;;;
+;input  ( ($new) ($x this) ($x this) ($hi) )
+;output ( ($new) ($x this) ($hi) )
+
+
+;; helper function which checks whether given thing is found in the storage a(lso given) or not
+( = (does-exist $unknown $storage)
+    (
+        if (== $storage ())
+            False
+            (
+                let*
+                    (
+                        ($top (car-atom $storage))
+                        ($leftExpression (cdr-atom $storage))
+                    )
+                    
+                    (
+                        if (== $top $unknown)
+                            True
+                            (does-exist $unknown $leftExpression)
+                    )
+            )
+    )
+)
+;test  !(does-exist ($new) ($new ($new) ))
+
+
+
+;; helper function which checks whether all the variables are unique 
+;;base case
+( = (uniqueness $total $current ())
+    (
+        let
+            $isNotUniqueLast (does-exist $current $total)
+            (
+                if (== $isNotUniqueLast False)
+                    True
+                    False ;; the last element is repeated so we should leave the whole combination
+            )
+    )
+)
+
+( = (uniqueness $accumulated $current $unchecked)  
+    (
+        let*
+            (
+                ($isNotUnique (does-exist $current $accumulated)) 
+                ($headOfUnchecked (car-atom $unchecked))
+                ($tailOfUnchecked (cdr-atom $unchecked))  
+                ($gatheredElements (union-atom $accumulated ($current)))
+            )
+            
+            (
+                if (== $isNotUnique False)
+                    (uniqueness $gatheredElements $headOfUnchecked $tailOfUnchecked)
+                    False ;; has repeated variables , so leave this entire combination
+            )  
+    ) 
+)
+; test !(uniqueness ( ) exp3 (exp4 exp3 exp2) )
+; this asks whether the combination named (exp3 exp4 exp3 exp2) is valid? meaning all its elements are unique?
+
+
+
+
+; another helper function named purifier
+; input () (exp1) ( (exp2) (wed dew) (wed dew wed))
+; output ( (exp1) (exp2) (wed dew) )
+
+;;base case 
+( = (purifier $total $current ())
+    (
+        let*
+            ( 
+                ($currentType (get-metatype $current))
+                ($formattedCurrent (if (== $currentType Expression) $current ($current))) 
+                
+                ($lastHeadForUniqueness (car-atom $formattedCurrent) )
+                ($lastTailForUniqueness (cdr-atom $formattedCurrent) )
+
+                ($shouldWEAdd (uniqueness () $lastHeadForUniqueness $lastTailForUniqueness) )  
+            )
+            
+            (
+                if (== $shouldWEAdd False)
+                    $total
+                    (union-atom $total ($current))
+            )
+    )
+)
+this is where u will get back at
+( = (purifier $accumulated $current $unchecked) 
+    ( 
+        let*
+            (  
+                ($nextToCheck (car-atom $unchecked))
+                ($nextUnchecked (cdr-atom $unchecked))  
+            ) 
+            (
+                let*
+                    ( 
+                        ($JoinHere (union-atom $accumulated ($current)))
+
+                        ;; check that $current has no repeated variables in it
+                        ;; call helper function named uniqueness
+                        ($currentType (get-metatype $current))
+                        ($formattedCurrent (if (== $currentType Expression) $current ($current))) 
+                        
+                        ($headForUniqueness (car-atom $formattedCurrent) )
+                        ($tailForUniqueness (cdr-atom $formattedCurrent) )
+                        
+                        ($combinationValidity (uniqueness () $headForUniqueness $tailForUniqueness))
+                        (() (println! (should we add $current ? $combinationValidity))) 
+                    )
+                    (
+                        if $combinationValidity 
+                            ( purifier $JoinHere $nextToCheck $nextUnchecked )
+                            ( purifier $accumulated $nextToCheck $nextUnchecked ) 
+                    ) 
+            )   
+    ) 
+)
+; test !(purifier () (exp1) ( (exp2) (exp1) ) )
+
+
+
+( = (remove-duplicates $allUnpurifiedCombinations)
+    (
+        let*
+            (
+                ($headExpression (car-atom $allUnpurifiedCombinations) )
+                ($tailExpression (cdr-atom $allUnpurifiedCombinations) )
+            )
+            ( purifier () $headExpression $tailExpression )
+    )
+)
+; test  !(remove-duplicates ( (a b c) (b c a)  (c b a) (a b a) ))
+ 
+
+;;;;; helper function
+;; we need a function which validates the existence of at-least one variable from set of variable of pattern 1, named checker
+( = (checker $the_real_combo $combo $var1)
+    (
+        if (== $combo ())
+            (empty)
+            (
+                let*
+                    (
+                        ($headOfCombo (car-atom $combo))
+                        ($tailOfCombo (cdr-atom $combo))
+                    )
+                    (
+                        if (does-exist $headOfCombo $var1)  
+                            $the_real_combo
+                            (checker $the_real_combo $tailOfCombo $var1 )
+                    )
+            )
+        
+    )
+) 
+
+( = (checkerCaller $combo $var1)
+    (checker $combo $combo $var1)
+)
+
+
+
+( = (combiner $accumulated $vars ()) $accumulated )
+
+( = (combiner $accumulated $vars (S $depth)) 
+    (
+        combiner (union-atom $accumulated ((superpose $vars))) $vars $depth
+    )
+
+)
+
+( = (all-variable-combination $pattern1 $pattern2)
+    (
+        let*
+            (
+                ($varsInPat1 (get-variables $pattern1))
+                ($varsInPat2 (get-variables $pattern2))
+                ($width (size-atom $varsInPat2))
+                ($depthNeeded (generateDepth (- $width 1)))
+                ($joined (union-atom $varsInPat1 $varsInPat2)) 
+                ($unpurifiedAllCombinations (collapse (combiner ((superpose $joined)) $joined $depthNeeded )) ) 
+            )
+            
+            ( 
+                let*
+                    (
+                        ($pat1Unchecked (remove-duplicates $unpurifiedAllCombinations) ) 
+                        ($var1Exist (checkerCaller (superpose $pat1Unchecked) $varsInPat1) )
+                    ) 
+                    $var1Exist 
+            )
+        
+    )
+)
+ 
+!(all-variable-combination (hi this is $name $lastName) (i am $age years old living in $country) ) 
