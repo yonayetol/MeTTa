@@ -1,30 +1,15 @@
 !(import! &self variable_identifier)
 
-
-
-;;;;;; depth generator ;;;;;;
-; input 3
-; output (s (s (s ())))
+;;;;;; depth generator ;;;;;; 
 ( = (generateDepth $size) 
     (
         if (== $size 0)
             ()
             (S (generateDepth (- $size 1)))
     )
-)
-; test 
-; !(generateDepth 3)
+) 
 
-
-
-
-
-;;;;;;; duplicate remover  ;;;;;;;;;
-;input  ( ($new) ($x this) ($x this) ($hi) )
-;output ( ($new) ($x this) ($hi) )
-
-
-;; helper function which checks whether given thing is found in the storage a(lso given) or not
+;;;;; checks membership of something in a given set of things
 ( = (does-exist $unknown $storage)
     (
         if (== $storage ())
@@ -43,124 +28,31 @@
                     )
             )
     )
-)
-;test  !(does-exist ($new) ($new ($new) ))
+) 
 
-
-
-;; helper function which checks whether all the variables are unique 
-;;base case
-( = (uniqueness $total $current ())
+;;;;; returns the false if it has repetitive variables, true if not
+( = (MyUnique-expression $store $expression)  
     (
-        let
-            $isNotUniqueLast (does-exist $current $total)
-            (
-                if (== $isNotUniqueLast False)
-                    True
-                    False ;; the last element is repeated so we should leave the whole combination
-            )
-    )
-)
-
-( = (uniqueness $accumulated $current $unchecked)  
-    (
-        let*
-            (
-                ($isNotUnique (does-exist $current $accumulated)) 
-                ($headOfUnchecked (car-atom $unchecked))
-                ($tailOfUnchecked (cdr-atom $unchecked))  
-                ($gatheredElements (union-atom $accumulated ($current)))
-            )
-            
-            (
-                if (== $isNotUnique False)
-                    (uniqueness $gatheredElements $headOfUnchecked $tailOfUnchecked)
-                    False ;; has repeated variables , so leave this entire combination
-            )  
-    ) 
-)
-; test !(uniqueness ( ) exp3 (exp4 exp3 exp2) )
-; this asks whether the combination named (exp3 exp4 exp3 exp2) is valid? meaning all its elements are unique?
-
-
-
-
-; another helper function named purifier
-; input () (exp1) ( (exp2) (wed dew) (wed dew wed))
-; output ( (exp1) (exp2) (wed dew) )
-
-;;base case 
-( = (purifier $total $current ())
-    (
-        let*
-            ( 
-                ($currentType (get-metatype $current))
-                ($formattedCurrent (if (== $currentType Expression) $current ($current))) 
-                
-                ($lastHeadForUniqueness (car-atom $formattedCurrent) )
-                ($lastTailForUniqueness (cdr-atom $formattedCurrent) )
-
-                ($shouldWEAdd (uniqueness () $lastHeadForUniqueness $lastTailForUniqueness) )  
-            )
-            
-            (
-                if (== $shouldWEAdd False)
-                    $total
-                    (union-atom $total ($current))
-            )
-    )
-)
-this is where u will get back at
-( = (purifier $accumulated $current $unchecked) 
-    ( 
-        let*
-            (  
-                ($nextToCheck (car-atom $unchecked))
-                ($nextUnchecked (cdr-atom $unchecked))  
-            ) 
+        if (== $expression ())
+            True
             (
                 let*
-                    ( 
-                        ($JoinHere (union-atom $accumulated ($current)))
-
-                        ;; check that $current has no repeated variables in it
-                        ;; call helper function named uniqueness
-                        ($currentType (get-metatype $current))
-                        ($formattedCurrent (if (== $currentType Expression) $current ($current))) 
-                        
-                        ($headForUniqueness (car-atom $formattedCurrent) )
-                        ($tailForUniqueness (cdr-atom $formattedCurrent) )
-                        
-                        ($combinationValidity (uniqueness () $headForUniqueness $tailForUniqueness))
-                        (() (println! (should we add $current ? $combinationValidity))) 
+                    (
+                        ($topPart (car-atom $expression))
+                        ($tailPart (cdr-atom $expression))
+                        ($exist (does-exist $topPart $store))
+                        ($joiner (union-atom $store ($topPart)))
                     )
                     (
-                        if $combinationValidity 
-                            ( purifier $JoinHere $nextToCheck $nextUnchecked )
-                            ( purifier $accumulated $nextToCheck $nextUnchecked ) 
-                    ) 
-            )   
+                        if $exist
+                            False
+                            (MyUnique-expression $joiner $tailPart)
+                    )
+            )
     ) 
 )
-; test !(purifier () (exp1) ( (exp2) (exp1) ) )
 
-
-
-( = (remove-duplicates $allUnpurifiedCombinations)
-    (
-        let*
-            (
-                ($headExpression (car-atom $allUnpurifiedCombinations) )
-                ($tailExpression (cdr-atom $allUnpurifiedCombinations) )
-            )
-            ( purifier () $headExpression $tailExpression )
-    )
-)
-; test  !(remove-duplicates ( (a b c) (b c a)  (c b a) (a b a) ))
- 
-
-;;;;; helper function
-;; we need a function which validates the existence of at-least one variable from set of variable of pattern 1, named checker
+;;;;;; checker checks whether the combo given has just one element from set of variables of patter 1, return (empty) if not
 ( = (checker $the_real_combo $combo $var1)
     (
         if (== $combo ())
@@ -177,18 +69,32 @@ this is where u will get back at
                             (checker $the_real_combo $tailOfCombo $var1 )
                     )
             )
-        
+         
     )
 ) 
-
+;;;;; interface of the main function
 ( = (checkerCaller $combo $var1)
     (checker $combo $combo $var1)
 )
 
+;;;;; decide whether a given combination is valid or not
+( = (purifier $current $var1) 
+    (   let* 
+        (  
+            ($combinationValidity (MyUnique-expression () $current) )    
+            (() (println! ($unique equals to $current ? $combinationValidity)))
+        ) 
+        (
+            if $combinationValidity
+                (checkerCaller $current $var1)
+                (empty)
+        )
+    ) 
+) 
 
 
 ( = (combiner $accumulated $vars ()) $accumulated )
-
+;;;;; makes the combinations randomly for now up-to the width needed
 ( = (combiner $accumulated $vars (S $depth)) 
     (
         combiner (union-atom $accumulated ((superpose $vars))) $vars $depth
@@ -196,28 +102,25 @@ this is where u will get back at
 
 )
 
+;;;;; the main function the caller of everything
 ( = (all-variable-combination $pattern1 $pattern2)
     (
         let*
             (
                 ($varsInPat1 (get-variables $pattern1))
                 ($varsInPat2 (get-variables $pattern2))
+                (() (println! ($varsInPat1 and $varsInPat2)))
+
                 ($width (size-atom $varsInPat2))
-                ($depthNeeded (generateDepth (- $width 1)))
+                ($depthNeeded (generateDepth $width) )
+                (() (println! $depthNeeded ))
+
                 ($joined (union-atom $varsInPat1 $varsInPat2)) 
-                ($unpurifiedAllCombinations (collapse (combiner ((superpose $joined)) $joined $depthNeeded )) ) 
+                ($unpurifiedAllCombinations (collapse (combiner () $joined $depthNeeded )) )  
             )
             
-            ( 
-                let*
-                    (
-                        ($pat1Unchecked (remove-duplicates $unpurifiedAllCombinations) ) 
-                        ($var1Exist (checkerCaller (superpose $pat1Unchecked) $varsInPat1) )
-                    ) 
-                    $var1Exist 
-            )
-        
+            ( let $var1Exist (collapse (purifier (superpose $unpurifiedAllCombinations) $varsInPat1)) $var1Exist )   
     )
 )
  
-!(all-variable-combination (hi this is $name $lastName) (i am $age years old living in $country) ) 
+; !(all-variable-combination (hi $this is name second) (i am $age years $old living in  $city  ) ) 
