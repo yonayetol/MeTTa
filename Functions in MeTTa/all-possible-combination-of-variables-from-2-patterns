@@ -30,29 +30,7 @@
     )
 ) 
 
-;;;;; returns the false if it has repetitive variables, true if not
-( = (MyUnique-expression $store $expression)  
-    (
-        if (== $expression ())
-            True
-            (
-                let*
-                    (
-                        ($topPart (car-atom $expression))
-                        ($tailPart (cdr-atom $expression))
-                        ($exist (does-exist $topPart $store))
-                        ($joiner (union-atom $store ($topPart)))
-                    )
-                    (
-                        if $exist
-                            False
-                            (MyUnique-expression $joiner $tailPart)
-                    )
-            )
-    ) 
-)
-
-;;;;;; checker checks whether the combo given has just one element from set of variables of patter 1, return (empty) if not
+;;;;;; checker checks whether the combo given has at-least one element from set of variables of pattern 1, return (empty) if not
 ( = (checker $the_real_combo $combo $var1)
     (
         if (== $combo ())
@@ -71,33 +49,33 @@
             )
          
     )
-) 
-;;;;; interface of the main function
-( = (checkerCaller $combo $var1)
-    (checker $combo $combo $var1)
-)
+)  
 
-;;;;; decide whether a given combination is valid or not
-( = (purifier $current $var1) 
-    (   let* 
-        (  
-            ($combinationValidity (MyUnique-expression () $current) )    
-            (() (println! ($unique equals to $current ? $combinationValidity)))
-        ) 
-        (
-            if $combinationValidity
-                (checkerCaller $current $var1)
-                (empty)
-        )
-    ) 
+;;;;; interface with the checker function
+( = (purifier $current $var1)
+    (
+        let () (println! (working on $current ... ))
+        (checker $current $current $var1)  
+    )
+        
 ) 
-
 
 ( = (combiner $accumulated $vars ()) $accumulated )
-;;;;; makes the combinations randomly for now up-to the width needed
+;;;;; makes combinations by pre-killing what is going to make repetition 
 ( = (combiner $accumulated $vars (S $depth)) 
     (
-        combiner (union-atom $accumulated ((superpose $vars))) $vars $depth
+        let*
+            (
+                ($randomVar (superpose $vars))
+                ($shouldBePreKilled (does-exist $randomVar $accumulated))
+                ($joiner (union-atom $accumulated ($randomVar) ) )
+            )
+            (
+                if $shouldBePreKilled
+                    (empty)
+                    (combiner $joiner $vars $depth)
+
+            ) 
     )
 
 )
@@ -108,19 +86,13 @@
         let*
             (
                 ($varsInPat1 (get-variables $pattern1))
-                ($varsInPat2 (get-variables $pattern2))
-                (() (println! ($varsInPat1 and $varsInPat2)))
-
-                ($width (size-atom $varsInPat2))
-                ($depthNeeded (generateDepth $width) )
-                (() (println! $depthNeeded ))
-
-                ($joined (union-atom $varsInPat1 $varsInPat2)) 
-                ($unpurifiedAllCombinations (collapse (combiner () $joined $depthNeeded )) )  
+                ($varsInPat2 (get-variables $pattern2)) 
+                ($width (size-atom $varsInPat2)) 
+                ($unpurifiedAllCombinations (collapse (combiner () (union-atom $varsInPat1 $varsInPat2) (generateDepth $width) )) )   
             )
             
             ( let $var1Exist (collapse (purifier (superpose $unpurifiedAllCombinations) $varsInPat1)) $var1Exist )   
     )
 )
  
-; !(all-variable-combination (hi $this is name second) (i am $age years $old living in  $city  ) ) 
+!(all-variable-combination (hi this is $name $second) (i am $age years $old living in city  ) ) 
