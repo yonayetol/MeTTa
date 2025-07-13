@@ -60,24 +60,50 @@
         
 ) 
 
-( = (combiner $accumulated $vars ()) $accumulated )
-;;;;; makes combinations by pre-killing what is going to make repetition 
-( = (combiner $accumulated $vars (S $depth)) 
+;;(combiner () $joiner (generateDepth $width) 1 1 )
+
+( = (combiner $accumulated $vars () $p1 $p2) $accumulated )
+;;;;; makes combinations by pre-killing what is going to make repetition or what is un-ordered
+( = (combiner $accumulated $vars (S $depth) $pointer1 $pointer2) 
     (
         let*
             (
-                ($randomVar (superpose $vars))
-                ($shouldBePreKilled (does-exist $randomVar $accumulated))
-                ($joiner (union-atom $accumulated ($randomVar) ) )
+                (($randomVar $index $patName) (superpose $vars))
+                ($shouldBePreKilled  
+                    (
+                        if (== $patName pat1)
+                            ( >= $pointer1 $index)
+                            ( >= $pointer2 $index)  
+                    ) 
+                )
+                ($joiner (union-atom $accumulated ($randomVar) ) ) 
             )
             (
                 if $shouldBePreKilled
                     (empty)
-                    (combiner $joiner $vars $depth)
-
+                    (
+                        if (== $patName pat1) 
+                            (combiner $joiner $vars $depth $index $pointer2)
+                            (combiner $joiner $vars $depth $pointer1 $index)
+                    )
             ) 
     )
+)
 
+
+( = (formatter $accumulated $vars $index $patName)
+    (
+        if (== $vars ())
+            $accumulated
+            (
+                let*
+                    (
+                        ($top (((car-atom $vars) $index $patName )))
+                        ($tail (cdr-atom $vars))
+                    )
+                    (formatter (union-atom $accumulated $top) $tail (+ $index 1) $patName) 
+            )
+    )
 )
 
 ;;;;; the main function the caller of everything
@@ -87,12 +113,19 @@
             (
                 ($varsInPat1 (get-variables $pattern1))
                 ($varsInPat2 (get-variables $pattern2)) 
+
+                ($first (formatter () $varsInPat1 1 pat1))
+                ($second (formatter () $varsInPat2 1 pat2))
+                ($joiner (union-atom $first $second))
+
+                (() (println! (we have got vars = $joiner)))
+                
                 ($width (size-atom $varsInPat2)) 
-                ($unpurifiedAllCombinations (collapse (combiner () (union-atom $varsInPat1 $varsInPat2) (generateDepth $width) )) )   
+                ($unpurifiedAllCombinations (collapse (combiner () $joiner (generateDepth $width) 0 0 )) )   
             )
             
             ( let $var1Exist (collapse (purifier (superpose $unpurifiedAllCombinations) $varsInPat1)) $var1Exist )   
     )
 )
- 
-!(all-variable-combination (hi this is $name $second) (i am $age years $old living in city  ) ) 
+
+!(all-variable-combination (hi this is $a) (i am $1 years $2 $3 living in city  ) ) 
