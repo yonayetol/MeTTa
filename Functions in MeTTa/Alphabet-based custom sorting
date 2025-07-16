@@ -1,0 +1,153 @@
+!(bind! &newSpace (new-space))
+
+!(add-reducts &newSpace (
+   ('a' 1) ('b' 2) ('c' 3) ('d' 4) ('e' 5) ('f' 6) ('g' 7) ('h' 8) ('i' 9) ('j' 10) 
+   ('k' 11) ('l' 12) ('m' 13) ('n' 14) ('o' 15) ('q' 17) ('r' 18) ('s' 19) ('t' 20) 
+   ('u' 21) ('v' 22) ('w' 23) ('x' 24) ('y' 25) ('z' 26)
+))
+
+( = (separate $given $mid $acc $curr)
+    (
+        if (== $curr $mid)
+            ($acc $given)
+            (
+                let*
+                    (
+                        ($top  ((car-atom $given)))
+                        ($tail (cdr-atom $given))
+                    )
+                    ( separate $tail $mid (union-atom $acc $top) (+ $curr 1) )
+            )
+    )
+) 
+
+( = (sliceToHalf $given)
+    (
+        let*
+            (
+                ($size (size-atom $given))
+                ($mid (+ (/ $size 2) (% $size 2)))
+            )
+            (separate $given $mid () 0)
+    )
+)
+
+( = (whoIsFirst $word1 $word2) ;handle first incase they are equal
+    (
+        if (or (== $word1 ()) (== $word2 ()))
+            (if (== $word1 ()) first second)
+            (
+                let*
+                    (   
+                        (($firstLetter1 $restLetter1) (decons-atom $word1))
+                        (($firstLetter2 $restLetter2) (decons-atom $word2))
+                        ($currentLetterNumber1 (match &newSpace ($firstLetter1 $num1) $num1))
+                        ($currentLetterNumber2 (match &newSpace ($firstLetter2 $num2) $num2)) 
+                    )
+                    (
+                        if (< $currentLetterNumber1 $currentLetterNumber2)
+                            first
+                            (
+                                if (> $currentLetterNumber1 $currentLetterNumber2)
+                                    second
+                                    (whoIsFirst $restLetter1 $restLetter2)
+                            )
+                    )
+            )
+        
+    )
+)
+ 
+
+( = (merge $left $right $store)
+    (  
+        if (or (== (size-atom $left) 0) (== (size-atom $right) 0))
+            (
+                if (== (size-atom $left) 0)
+                    (union-atom $store $right) 
+                    (union-atom $store $left)  
+            )
+            (let*
+                (
+                    (() (println! (in merge function)))
+                    (() (println! ($left))) 
+                    (() (println! ($right)))
+                    (($leftCurr $leftLeft)  (decons-atom $left))
+                    (($rightCurr $rightRight) (decons-atom $right)) 
+                    ($sameWord (noreduce-eq $leftCurr $rightCurr))  
+                )
+                ( 
+                    if $sameWord
+                        ( let $joint (union-atom ($leftCurr) ($rightCurr)) (merge $leftLeft $rightRight (union-atom $store $joint)) )
+                        (
+                            if (== (whoIsFirst $leftCurr $rightCurr) first) 
+                                (merge $leftLeft $right (union-atom $store ($leftCurr))) 
+                                (merge $left $rightRight (union-atom $store ($rightCurr))) 
+                        )
+                )
+            )
+    )
+)
+
+( = (merge_sort $toBeSorted)
+    (
+        if (> 2 (size-atom $toBeSorted))
+            $toBeSorted
+            (let*
+                (
+                    ($sliced (sliceToHalf $toBeSorted))
+                    ($leftPart (car-atom $sliced))
+                    ($right (cdr-atom $sliced))
+                    ($rightPart (car-atom $right)) 
+
+                    (() (println! (------------sliced----------)))
+                    (() (println! ($toBeSorted -> -> -> $leftPart and $rightPart)))
+
+                    ($sortedLeft (merge_sort $leftPart))
+                    ($sortedRight (merge_sort $rightPart))
+                    ( () (println! ($leftPart is  sorted and got $sortedLeft)))
+                    ( () (println! ($rightPart is sorted and got $sortedRight)))
+
+                    ($answer (merge $sortedLeft $sortedRight ()))
+
+                )
+                (trace! (we have got $answer) $answer) 
+            )
+    )
+)
+ 
+( = (to-Atom $word $finalAnswer) 
+    (
+        if (== $word ())
+            $finalAnswer
+            (
+                let*
+                    (
+                        ($head (car-atom $word))
+                        ($tail (cdr-atom $word))
+                        ($parsedHead ((parse (charsToString $head))))
+                        ($ansJoin (union-atom $finalAnswer $parsedHead))
+                    )
+                    (to-Atom $tail $ansJoin)
+            )
+             
+    )
+)
+
+( = (explode $word) (stringToChars (repr $word) ) )
+
+( = (sort $toBeSorted)
+    (
+        let*
+            (
+                ($explodedWords (collapse (explode (superpose $toBeSorted))))
+                ($sortedWords (merge_sort $explodedWords))
+                (() (println! (finished sorting and we have got $sortedWords)))
+            )
+            (to-Atom $sortedWords ())
+    )
+    
+
+)
+
+!(sort (hey i am yonas a student)) 
